@@ -1,0 +1,6 @@
+gradio
+nltk
+scipy
+torch
+transformers
+tokenizers
