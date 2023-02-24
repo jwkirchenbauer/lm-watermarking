@@ -1,67 +1,29 @@
 # Basic imports
-import sys
 import os
-import argparse
-from typing import List, Iterable, Optional
 from functools import partial
-import time
 from argparse import Namespace
 
-from tqdm import tqdm
-import random
-import math
-from statistics import mean
-
 import numpy as np
-import pandas as pd
-import torch
-from torch import Tensor
-from tokenizers import Tokenizer
-
-import wandb
-import matplotlib.pyplot as plt
-
-# cache path before HF imports just for kicks
-# bc I don't really know when this is pulled by the library
-# TODO change to passing as an arg to the model load fn
-USER = "jkirchen"
-# Huggingface cache
-HF_HOME=f"/cmlscratch/{USER}/.cache/huggingface"
-# HF_HOME=f"/scratch0/{USER}/.cache/huggingface"
-# HF_HOME=f"/scratch1/{USER}/.cache/huggingface"
-os.environ["HF_HOME"] = HF_HOME
-
-print(os.environ["HF_HOME"])
-
 
 # HF classses
-from transformers import (AutoTokenizer, 
-                          AutoModelForSeq2SeqLM, 
-                          AutoModelForCausalLM,
-                          LogitsProcessorList)
+from transformers import AutoTokenizer
 
-from datasets import load_dataset, load_from_disk, Dataset, concatenate_datasets
+from datasets import Dataset, concatenate_datasets
 
 
 # watermarking micro lib
 from watermark import (BlacklistLogitsProcessor,
-                       generate_completions,
-                       aggregate_bl_stats,
-                       evaluate_generation_fluency,
                        compute_bl_metrics)
 
-# better bool flag type for argparse
-from submitit_utils import str2bool
-
 # some file i/o helpers
-from io_utils import write_jsonlines, write_json, read_jsonlines, read_json
+from io_utils import read_jsonlines, read_json
 
 
 from watermark import compute_bl_metrics, BlacklistLogitsProcessor
 
 
 ###########################################################################
-# Compute E[wl] for each example - need to move this to analysis nb
+# Compute E[wl] for each example
 ###########################################################################
 
 def expected_whitelist(example,
@@ -250,8 +212,6 @@ runs_to_load = run_names
 
 print(len(run_names))
 for name in run_names: print(name)
-
-# sys.exit(0)
 
 runs_ready = [os.path.exists(f"{output_dir}/{name}/gen_table_w_metrics.jsonl") for name in runs_to_load]
 # runs_ready = [os.path.exists(f"{output_dir}/{name}/gen_table_w_attack_metrics.jsonl") for name in runs_to_load]

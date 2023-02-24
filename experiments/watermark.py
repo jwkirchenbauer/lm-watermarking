@@ -12,8 +12,7 @@ import numpy as np
 from torch import Tensor
 from tokenizers import Tokenizer
 from transformers import LogitsProcessor, LogitsProcessorList, set_seed
-# logits processor is the primary interface for the blacklist logic
-# TopKLogitsWarper, TypicalLogitsWarper would be options too
+
 
 def tokenize_and_truncate(example: dict,
                           completion_length: int = None,
