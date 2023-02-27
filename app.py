@@ -19,13 +19,14 @@ args = Namespace()
 
 arg_dict = {
     'run_gradio': True, 
-    # 'demo_public': False, 
-    'demo_public': True, 
+    'demo_public': False, 
     # 'model_name_or_path': 'facebook/opt-125m', 
     # 'model_name_or_path': 'facebook/opt-1.3b', 
     # 'model_name_or_path': 'facebook/opt-2.7b', 
-    'model_name_or_path': 'facebook/opt-6.7b', 
-    # 'model_name_or_path': 'facebook/opt-13b', 
+    'model_name_or_path': 'facebook/opt-6.7b',
+    # 'model_name_or_path': 'facebook/opt-13b',
+    # 'load_fp16' : True,
+    'load_fp16' : False,
     'prompt_max_length': None, 
     'max_new_tokens': 200, 
     'generation_seed': 123, 
@@ -40,7 +41,6 @@ arg_dict = {
     'ignore_repeated_bigrams': False, 
     'detection_z_threshold': 4.0, 
     'select_green_tokens': True,
-    # 'skip_model_load': True,
     'skip_model_load': False,
     'seed_separately': True,
 }

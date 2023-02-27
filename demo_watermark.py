@@ -162,6 +162,12 @@ def parse_args():
         default=True,
         help="Whether to call the torch seed function before both the unwatermarked and watermarked generate calls.",
     )
+    parser.add_argument(
+        "--load_fp16",
+        type=str2bool,
+        default=False,
+        help="Whether to run model in float16 precsion.",
+    )
     args = parser.parse_args()
     return args
 
@@ -173,13 +179,19 @@ def load_model(args):
     if args.is_seq2seq_model:
         model = AutoModelForSeq2SeqLM.from_pretrained(args.model_name_or_path)
     elif args.is_decoder_only_model:
-        model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path)
+        if args.load_fp16:
+            model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path,torch_dtype=torch.float16, device_map='auto')
+        else:
+            model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path)
     else:
         raise ValueError(f"Unknown model type: {args.model_name_or_path}")
 
     if args.use_gpu:
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        model = model.to(device)
+        if args.load_fp16: 
+            pass
+        else: 
+            model = model.to(device)
     else:
         device = "cpu"
     model.eval()
@@ -264,12 +276,14 @@ def format_names(s):
     s=s.replace("green_fraction","Fraction of T in Greenlist")
     s=s.replace("z_score","z-score")
     s=s.replace("p_value","p value")
+    s=s.replace("prediction","Prediction")
+    s=s.replace("confidence","Confidence")
     return s
 
 def list_format_scores(score_dict, detection_threshold):
     """Format the detection metrics into a gradio dataframe input format"""
     lst_2d = []
-    lst_2d.append(["z-score threshold", f"{detection_threshold}"])
+    # lst_2d.append(["z-score threshold", f"{detection_threshold}"])
     for k,v in score_dict.items():
         if k=='green_fraction': 
             lst_2d.append([format_names(k), f"{v:.1%}"])
@@ -281,6 +295,10 @@ def list_format_scores(score_dict, detection_threshold):
             lst_2d.append([format_names(k), ("Watermarked" if v else "Human/Unwatermarked")])
         else: 
             lst_2d.append([format_names(k), f"{v}"])
+    if "confidence" in score_dict:
+        lst_2d.insert(-2,["z-score Threshold", f"{detection_threshold}"])
+    else:
+        lst_2d.insert(-1,["z-score Threshold", f"{detection_threshold}"])
     return lst_2d
 
 def detect(input_text, args, device=None, tokenizer=None):
@@ -311,11 +329,24 @@ def run_gradio(args, model=None, device=None, tokenizer=None):
     detect_partial = partial(detect, device=device, tokenizer=tokenizer)
 
     with gr.Blocks() as demo:
-
         # Top section, greeting and instructions
-        gr.Markdown("## 💧 [A Watermark for Large Language Models](https://arxiv.org/abs/2301.10226) 🔍")
-        gr.Markdown("[jwkirchenbauer/lm-watermarking![](https://badgen.net/badge/icon/GitHub?icon=github&label)](https://github.com/jwkirchenbauer/lm-watermarking)")
-        gr.Markdown(f"Language model: {args.model_name_or_path}")
+        with gr.Row():
+            with gr.Column(scale=9):
+                gr.Markdown(
+                """
+                ## 💧 [A Watermark for Large Language Models](https://arxiv.org/abs/2301.10226) 🔍
+                """
+                )
+            with gr.Column(scale=1):
+                gr.Markdown(
+                """
+                [![](https://badgen.net/badge/icon/GitHub?icon=github&label)](https://github.com/jwkirchenbauer/lm-watermarking)
+                """
+                )
+            # with gr.Column(scale=2):
+            #     pass
+            # ![visitor badge](https://visitor-badge.glitch.me/badge?page_id=tomg-group-umd_lm-watermarking) # buggy
+
         with gr.Accordion("Understanding the output metrics",open=False):
             gr.Markdown(
             """
@@ -337,26 +368,27 @@ def run_gradio(args, model=None, device=None, tokenizer=None):
             """
             )
 
-        with gr.Accordion("A note on model capability",open=False):
+        with gr.Accordion("A note on model capability",open=True):
             gr.Markdown(
                 """
-                The models that can be used in this demo are limited to those that are both open source and that fit on a single commodity GPU. 
-                In particular, there aren't many models above a few billion parameters and almost none trained using both Instruction-finetuning an/or RLHF.
-                Therefore, in both it's un-watermarked (normal) and watermarked states, the model is not generally able to respond well to the kinds of prompts that a 100B+ Instruction and RLHF tuned model such as ChatGPT, Claude, or Bard is.
-                
-                We suggest you try prompts that give the model a few sentences and then allow it to 'continue' the prompt, as these weaker models are more capable in this simpler language modeling setting. 
+                This demo uses open-source language models that fit on a single GPU. These models are less powerful than proprietary commercial tools like ChatGPT, Claude, or Bard. 
+
+                Importantly, we use a language model that is designed to "complete" your prompt, and not a model this is fine-tuned to follow instructions. 
+                For best results, prompt the model with a few sentences that form the beginning of a paragraph, and then allow it to "continue" your paragraph. 
                 Some examples include the opening paragraph of a wikipedia article, or the first few sentences of a story. 
-                Longer prompts and stopping mid sentence often helps encourage more fluent, longer genrations.
+                Longer prompts that end mid-sentence will result in more fluent generations.
                 """
                 )
+        gr.Markdown(f"Language model: {args.model_name_or_path} {'(float16 mode)' if args.load_fp16 else ''}")
 
         # Construct state for parameters, define updates and toggles
+        default_prompt = args.__dict__.pop("default_prompt")
         session_args = gr.State(value=args)
 
         with gr.Tab("Generate and Detect"):
             
             with gr.Row():
-                prompt = gr.Textbox(label=f"Prompt", interactive=True,lines=10,max_lines=10)
+                prompt = gr.Textbox(label=f"Prompt", interactive=True,lines=10,max_lines=10, value=default_prompt)
             with gr.Row():
                 generate_btn = gr.Button("Generate")
             with gr.Row():
@@ -618,7 +650,9 @@ def main(args):
         "feet.[9] The species is"
         )
 
-        term_width = os.get_terminal_size()[0]
+        args.default_prompt = input_text
+
+        term_width = 80
         print("#"*term_width)
         print("Prompt:")
         print(input_text)
