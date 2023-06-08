@@ -6,6 +6,12 @@ Official implementation of the watermarking and detection algorithms presented i
 
 "A Watermark for Large language Models" by _John Kirchenbauer*, Jonas Geiping*, Yuxin Wen, Jonathan Katz, Ian Miers, Tom Goldstein_  
 
+## Update 6/7/23:
+### We're thrilled to announce the release of ["On the Reliability of Watermarks for Large Language Models"](https://arxiv.org/abs/2306.04634), a new preprint documenting our deep dive into the robustness properties of more advanced watermarks.
+#### Code implementing the alternate watermark and detector variants will be added to this repository in the next few days. Stay tuned!
+
+---
+
 Implementation is based on the "logit processor" abstraction provided by the [huggingface/transformers 🤗](https://github.com/huggingface/transformers) library.
 
 The `WatermarkLogitsProcessor` is designed to be readily compatible with any model that supports the `generate` API.
