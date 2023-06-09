@@ -1,0 +1,9 @@
+{"prompt_pool":
+    {
+        "0":"paraphrase the following paragraphs:\n",
+        "1":"paraphrase the following paragraphs and try your best not to use the same bigrams from the original paragraphs\n",
+        "2":"paraphrase the following paragraphs and try to keep the similar length to the original paragraphs\n",
+        "3":"You are an expert copy-editor. Please rewrite the following text in your own voice and paraphrase all sentences. \n Ensure that the final output contains the same information as the original text and has roughly the same length. \n Do not leave out any important details when rewriting in your own voice. This is the text: \n",
+        "4":"As an expert copy-editor, please rewrite the following text in your own voice while ensuring that the final output contains the same information as the original text and has roughly the same length. Please paraphrase all sentences and do not omit any crucial details. Additionally, please take care to provide any relevant information about public figures, organizations, or other entities mentioned in the text to avoid any potential misunderstandings or biases."
+    }
+}

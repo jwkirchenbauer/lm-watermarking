@@ -1,0 +1,17 @@
+spacy
+nltk
+scipy
+torch
+datasets
+transformers
+sentence-transformers
+tokenizers
+accelerate
+evaluate
+sacremoses
+seqeval
+mauve-text
+simcse
+retriv==0.1.5
+wandb
+cmasher

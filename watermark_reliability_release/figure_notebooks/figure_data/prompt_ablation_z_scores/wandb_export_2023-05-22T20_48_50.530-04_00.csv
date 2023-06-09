@@ -1,0 +1,4 @@
+"Name","_wandb","f_600p25m25_w_wm_output_attacked_z_score_std","f_600p25m25_w_wm_output_attacked_z_score_mean","f_600p25m25_w_wm_output_z_score_mean"
+"core_simple_1_100_600_gpt_p3_eval","","3.529052676335343","4.04589916702628","16.721541727395532"
+"core_simple_1_100_600_gpt_p4_eval","","3.5912026100805408","3.9591005479600447","16.721541727395532"
+"core_simple_1_100_600_gpt_p0_eval","","2.111483523536179","3.1874189551648064","16.721541727395532"

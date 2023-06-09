@@ -1,0 +1,4 @@
+"Name","_wandb","f_600p25m25_w_wm_output_num_tokens_scored_mean","f_600p25m25_w_wm_output_attacked_num_tokens_scored_std","f_600p25m25_w_wm_output_attacked_num_tokens_scored_mean"
+"core_simple_1_100_600_gpt_p3_eval","","599.0122180451128","129.67183968363676","307.3148496240602"
+"core_simple_1_100_600_gpt_p4_eval","","599.0122180451128","130.0947100648144","293.9426691729323"
+"core_simple_1_100_600_gpt_p0_eval","","599.0122180451128","112.7022139723196","260.70394736842104"
