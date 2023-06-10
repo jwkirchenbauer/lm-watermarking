@@ -29,7 +29,7 @@ in favor of the implementation in `watermark_processor.py`.
 
 ### Demo Usage
 
-As a quickstart, the app can be launched with default args (or deployed to a [huggingface Space](https://huggingface.co/spaces)) using `app.py`
+As a quickstart, the app can be launched with default args (or deployed to a [Hugging Face Space](https://huggingface.co/spaces)) using `app.py`
 which is just a thin wrapper around the demo script.
 ```sh
 python app.py
