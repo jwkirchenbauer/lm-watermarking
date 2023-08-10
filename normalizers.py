@@ -51,14 +51,22 @@ class HomoglyphCanonizer:
         return target_category, all_categories
 
     @cache
-    def _select_canon_category_and_load(self, target_category: str, all_categories: tuple[str]) -> dict:
-        homoglyph_table = hg.Homoglyphs(categories=(target_category, "COMMON"))  # alphabet loaded here from file
+    def _select_canon_category_and_load(
+        self, target_category: str, all_categories: tuple[str]
+    ) -> dict:
+        homoglyph_table = hg.Homoglyphs(
+            categories=(target_category, "COMMON")
+        )  # alphabet loaded here from file
 
         source_alphabet = hg.Categories.get_alphabet(all_categories)
-        restricted_table = homoglyph_table.get_restricted_table(source_alphabet, homoglyph_table.alphabet)  # table loaded here from file
+        restricted_table = homoglyph_table.get_restricted_table(
+            source_alphabet, homoglyph_table.alphabet
+        )  # table loaded here from file
         return restricted_table
 
-    def _sanitize_text(self, target_category: str, homoglyph_table: dict, homoglyphed_str: str) -> str:
+    def _sanitize_text(
+        self, target_category: str, homoglyph_table: dict, homoglyphed_str: str
+    ) -> str:
         sanitized_text = ""
         for char in homoglyphed_str:
             # langs = hg.Languages.detect(char)
@@ -85,7 +93,6 @@ class UnicodeSanitizer:
 
     def __init__(self, ruleset="whitespaces"):
         if ruleset == "whitespaces":
-
             """Documentation:
             \u00A0: Non-breaking space
             \u1680: Ogham space mark
@@ -114,7 +121,6 @@ class UnicodeSanitizer:
                 r"\u202E\u202F]"
             )
         elif ruleset == "IDN.blacklist":
-
             """Documentation:
             [\u00A0\u1680\u180E\u2000-\u200B\u202F\u205F\u2060\u2063\uFEFF]: Matches any whitespace characters in the Unicode character
                         set that are included in the IDN blacklist.
@@ -142,7 +148,9 @@ class UnicodeSanitizer:
         text = unicodedata.normalize("NFC", text)  # canon forms
         text = self.pattern.sub(" ", text)  # pattern match
         text = re.sub(" +", " ", text)  # collapse whitespaces
-        text = "".join(c for c in text if unicodedata.category(c) != "Cc")  # Remove any remaining non-printable characters
+        text = "".join(
+            c for c in text if unicodedata.category(c) != "Cc"
+        )  # Remove any remaining non-printable characters
         return text
 
 
@@ -178,7 +186,12 @@ class TrueCaser:
     def _spacy_truecasing(self, random_capitalized_string: str):
         doc = self.nlp(random_capitalized_string.lower())
         POS = self.uppercase_pos
-        truecased_str = "".join([w.text_with_ws.capitalize() if w.pos_ in POS or w.is_sent_start else w.text_with_ws for w in doc])
+        truecased_str = "".join(
+            [
+                w.text_with_ws.capitalize() if w.pos_ in POS or w.is_sent_start else w.text_with_ws
+                for w in doc
+            ]
+        )
         return truecased_str
 
     def _nltk_truecasing(self, random_capitalized_string: str):

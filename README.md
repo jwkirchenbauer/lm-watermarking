@@ -18,8 +18,8 @@ Any model that can be constructed using the `AutoModelForCausalLM` or `AutoModel
 
 ### Repo contents
 
-The core implementation is defined by the `WatermarkBase`, `WatermarkLogitsProcessor`, and `WatermarkDetector` classes in the file `watermark_processor.py`.
-The `demo_watermark.py` script implements a gradio demo interface as well as minimum working example in the `main` function.
+The core implementation is defined by the `WatermarkBase`, `WatermarkLogitsProcessor`, and `WatermarkDetector` classes in the files `watermark_processor.py`, for a minimal implementation and `extended_watermark_processor.py` for the full (recommended, modern) implementation.
+The `demo_watermark.py` script implements a gradio demo interface as well as minimum working example in the `main` function using the minimal version.
 
 Details about the parameters and the detection outputs are provided in the gradio app markdown blocks as well as the argparse definition.
 
@@ -38,14 +38,43 @@ gradio app.py # for hot reloading
 python demo_watermark.py --model_name_or_path facebook/opt-6.7b
 ```
 
-### Abstract Usage of the `WatermarkLogitsProcessor` and `WatermarkDetector`
 
-Generate watermarked text:
+### How to Watermark - A short guide on watermark hyperparameters
+What watermark hyperparameters are optimal for your task or for a comparison to new watermarks? We'll provide a brief overview about all important settings below, and best practices for future work. This guide represents our current understanding of optimal settings as of August 2023, and so is a bit more up to date than our conference paper:
+
+1) **Logit bias delta**: The magnitude of delta determines the strength of the watermark. A sufficiently large value of delta recovers a "hard" watermark that encodes 1 bit of information at every token, but this is not an advisable setting, as it strongly affects model quality. A moderate delta in the range of [0.5, 2.0] is appropriate for normal use cases, but the strength of delta is relative to the entropy of the output distribution. Models that are overconfident, such as instruction-tuned models, may benefit from choosing a larger delta value. With non-infinite delta values, the watermark strength is directly proportional to the (spike) entropy of the text and exp(delta) (see Theorem 4.2 in our paper).
+
+2) **Context width h**: Context width is the length of the context which is taken into account when seeding the watermark at each location. The longer the context, the "more random" the red/green list partitions are, and the less detectable the watermark is. For private watermarks, this implies that the watermark is harder to discover via brute-force (with an exponential increase in hardness with increasing context width h).
+In the limit of a very long context width, we approach the "undetectable" setting of https://eprint.iacr.org/2023/763. However, the longer the context width, the less "nuclear" the watermark is, and robustness to paraphrasing and other attacks decreases. In the limit of h=0, the watermark is independent of local context and, as such, it is minimally random, but maximally robust against edits (see https://arxiv.org/abs/2306.17439).
+
+3) **Ignoring repeated ngrams**: The watermark is only pseudo-random based on the local context. Whenever local context repeats, this constitutes a violation of the assumption that watermarks are drawn iid. (See Sec.4. in our paper for details). For this reason, p-values for text with repeated n-grams (n-gram here meaning context + chosen token) will be misleading. As such, detection should be run with --ignore-repeated-ngrams. An additional, detailed analysis of this effect can be found in http://arxiv.org/abs/2308.00113.
+
+
+4) **Choice of pseudo-random-function** (PRF): This choice is only relevant if context width h>1 and determines the robustness of the hash of the context against edits. In our experiments we find "min"-hash PRFs to be the most reliable. In comparison to a PRF that depends on the entire context, this PRF only depends on a single, randomly chosen token from the context.
+
+5) **Self-Hashing**: It is possible to extend the context width of the watermark onto the current token. This effectively extends the context width "for-free" by one. The only downside is that this approach requires hashing all possible next tokens, and applying the logit bias only to tokens where their inclusion in the context would produce a hash that includes this token on the green list. This is slow in the way we implement it, because we use cuda's pseudorandom number generator, but in principle has a negligible cost, compared to generating new tokens. A generalized algorithm for self-hashing can be found as Alg.1 in http://arxiv.org/abs/2306.04634.
+6) **Gamma**: Gamma denotes the fraction of the vocabulary that will be in each green list. We find gamma=0.25 to be slightly more optimal empirically, but this is a minor effect and all reasonable values of gamma will lead to reasonable watermark.
+7) **Base Key**: Our watermark is salted with a small base key of 15485863. If you deploy this watermark, we do not advise re-using this key.
+
+
+**To summarize**, as a baseline generation setting, we suggest a moderate value of h, i.e. h=4, and default values of gamma=0.25 and delta=2.0. Reduce delta if text quality is negatively impacted, reduce h, if more robustness against edits is required. As a default PRF we recommend `selfhash`, but can use `minhash` if you want. Remember that these PRFs only matter if h>1. For detection, always use  `--ignore--repeated-ngrams=True`.
+
+
+### How to use the watermark in your own code.
+
+Our implementation can be added into any huggingface generation pipeline as an additional `LogitProcessor`, only the classes `WatermarkLogitsProcessor` and `WatermarkDetector` from the `extended_watermark_processor.py` file are required.
+
+Example snippet to generate watermarked text:
 ```python
+
+from extended_watermark_processor import WatermarkLogitsProcessor
+
 watermark_processor = WatermarkLogitsProcessor(vocab=list(tokenizer.get_vocab().values()),
                                                gamma=0.25,
                                                delta=2.0,
-                                               seeding_scheme="simple_1")
+                                               seeding_scheme="selfhash") #equivalent to `ff-anchored_minhash_prf-4-True-15485863`
+# Note:
+# You can turn off self-hashing by setting the seeding scheme to `minhash`.
 
 tokenized_input = tokenizer(input_text).to(model.device)
 # note that if the model is on cuda, then the input is on cuda
@@ -62,24 +91,25 @@ output_tokens = output_tokens[:,tokenized_input["input_ids"].shape[-1]:]
 output_text = tokenizer.batch_decode(output_without_watermark, skip_special_tokens=True)[0]
 ```
 
-Detect watermarked text:
+Example snippet to detect watermarked text:
 ```python
+
+from extended_watermark_processor import WatermarkDetector
+
 watermark_detector = WatermarkDetector(vocab=list(tokenizer.get_vocab().values()),
                                         gamma=0.25, # should match original setting
-                                        seeding_scheme="simple_1", # should match original setting
+                                        seeding_scheme="selfhash", # should match original setting
                                         device=model.device, # must match the original rng device type
                                         tokenizer=tokenizer,
                                         z_threshold=4.0,
                                         normalizers=[],
-                                        ignore_repeated_bigrams=False)
+                                        ignore_repeated_ngrams=True)
 
 score_dict = watermark_detector.detect(output_text) # or any other text of interest to analyze
 ```
 
-### Pending Items
-
-- More advanced hashing/seeding schemes beyond `simple_1` as detailed in paper
-- Attack experiment code
+To recover the main settings of the experiments in the original work (for historical reasons), use the seeding scheme `simple_1` and set `ignore_repeated_ngrams=False` at detection time.
 
 
+### Contributing
 Suggestions and PR's welcome 🙂

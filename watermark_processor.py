@@ -29,6 +29,7 @@ from nltk.util import ngrams
 
 from normalizers import normalization_strategy_lookup
 
+
 class WatermarkBase:
     def __init__(
         self,
@@ -71,15 +72,14 @@ class WatermarkBase:
 
         greenlist_size = int(self.vocab_size * self.gamma)
         vocab_permutation = torch.randperm(self.vocab_size, device=input_ids.device, generator=self.rng)
-        if self.select_green_tokens: # directly
-            greenlist_ids = vocab_permutation[:greenlist_size] # new
-        else: # select green via red
+        if self.select_green_tokens:  # directly
+            greenlist_ids = vocab_permutation[:greenlist_size]  # new
+        else:  # select green via red
             greenlist_ids = vocab_permutation[(self.vocab_size - greenlist_size) :]  # legacy behavior
         return greenlist_ids
 
 
 class WatermarkLogitsProcessor(WatermarkBase, LogitsProcessor):
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -124,7 +124,7 @@ class WatermarkDetector(WatermarkBase):
         tokenizer: Tokenizer = None,
         z_threshold: float = 4.0,
         normalizers: list[str] = ["unicode"],  # or also: ["unicode", "homoglyphs", "truecase"]
-        ignore_repeated_bigrams: bool = False,
+        ignore_repeated_bigrams: bool = True,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
@@ -145,11 +145,10 @@ class WatermarkDetector(WatermarkBase):
         self.normalizers = []
         for normalization_strategy in normalizers:
             self.normalizers.append(normalization_strategy_lookup(normalization_strategy))
-        
-        self.ignore_repeated_bigrams = ignore_repeated_bigrams
-        if self.ignore_repeated_bigrams: 
-            assert self.seeding_scheme == "simple_1", "No repeated bigram credit variant assumes the single token seeding scheme."
 
+        self.ignore_repeated_bigrams = ignore_repeated_bigrams
+        if self.ignore_repeated_bigrams:
+            assert self.seeding_scheme == "simple_1", "No repeated bigram credit variant assumes the single token seeding scheme."
 
     def _compute_z_score(self, observed_count, T):
         # count refers to number of green tokens, T is total number of tokens
@@ -179,24 +178,28 @@ class WatermarkDetector(WatermarkBase):
             # We iterate over all unqiue token bigrams in the input, computing the greenlist
             # induced by the first token in each, and then checking whether the second
             # token falls in that greenlist.
-            assert return_green_token_mask == False, "Can't return the green/red mask when ignoring repeats."
+            assert return_green_token_mask is False, "Can't return the green/red mask when ignoring repeats."
             bigram_table = {}
             token_bigram_generator = ngrams(input_ids.cpu().tolist(), 2)
             freq = collections.Counter(token_bigram_generator)
             num_tokens_scored = len(freq.keys())
             for idx, bigram in enumerate(freq.keys()):
-                prefix = torch.tensor([bigram[0]], device=self.device) # expects a 1-d prefix tensor on the randperm device
+                prefix = torch.tensor([bigram[0]], device=self.device)  # expects a 1-d prefix tensor on the randperm device
                 greenlist_ids = self._get_greenlist_ids(prefix)
                 bigram_table[bigram] = True if bigram[1] in greenlist_ids else False
             green_token_count = sum(bigram_table.values())
         else:
             num_tokens_scored = len(input_ids) - self.min_prefix_len
             if num_tokens_scored < 1:
-                raise ValueError((f"Must have at least {1} token to score after "
-                                f"the first min_prefix_len={self.min_prefix_len} tokens required by the seeding scheme."))
+                raise ValueError(
+                    (
+                        f"Must have at least {1} token to score after "
+                        f"the first min_prefix_len={self.min_prefix_len} tokens required by the seeding scheme."
+                    )
+                )
             # Standard method.
             # Since we generally need at least 1 token (for the simplest scheme)
-            # we start the iteration over the token sequence with a minimum 
+            # we start the iteration over the token sequence with a minimum
             # num tokens as the first prefix for the seeding scheme,
             # and at each step, compute the greenlist induced by the
             # current prefix and check if the current token falls in the greenlist.
@@ -246,7 +249,7 @@ class WatermarkDetector(WatermarkBase):
         # run optional normalizers on text
         for normalizer in self.normalizers:
             text = normalizer(text)
-        if len(self.normalizers) > 0: 
+        if len(self.normalizers) > 0:
             print(f"Text after normalization:\n\n{text}\n")
 
         if tokenized_text is None:
@@ -277,4 +280,3 @@ class WatermarkDetector(WatermarkBase):
                 output_dict["confidence"] = 1 - score_dict["p_value"]
 
         return output_dict
-
