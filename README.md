@@ -18,7 +18,7 @@ Any model that can be constructed using the `AutoModelForCausalLM` or `AutoModel
 
 ### Repo contents
 
-The core implementation is defined by the `WatermarkBase`, `WatermarkLogitsProcessor`, and `WatermarkDetector` classes in the files `watermark_processor.py`, for a minimal implementation and `extended_watermark_processor.py` for the full (recommended, modern) implementation.
+The core implementation is defined by the `WatermarkBase`, `WatermarkLogitsProcessor`, and `WatermarkDetector` classes in the files `watermark_processor.py`, for a minimal implementation and `extended_watermark_processor.py` for the more full featured implementation (recommended).
 The `demo_watermark.py` script implements a gradio demo interface as well as minimum working example in the `main` function using the minimal version.
 
 Details about the parameters and the detection outputs are provided in the gradio app markdown blocks as well as the argparse definition.
@@ -40,25 +40,24 @@ python demo_watermark.py --model_name_or_path facebook/opt-6.7b
 
 
 ### How to Watermark - A short guide on watermark hyperparameters
-What watermark hyperparameters are optimal for your task or for a comparison to new watermarks? We'll provide a brief overview about all important settings below, and best practices for future work. This guide represents our current understanding of optimal settings as of August 2023, and so is a bit more up to date than our conference paper:
+What watermark hyperparameters are optimal for your task or for a comparison to new watermarks? We'll provide a brief overview about all important settings below, and best practices for future work. This guide represents our current understanding of optimal settings as of August 2023, and so is a bit more up to date than our ICML 2023 conference paper.
+
+**TL;DR**: As a baseline generation setting, we suggest default values of `gamma=0.25` and `delta=2.0`. Reduce delta if text quality is negatively impacted. For the context width, h, we recommend a moderate value, i.e. h=4, and as a default PRF we recommend `selfhash`, but can use `minhash` if you want. Reduce h if more robustness against edits is required. Note however that the choice of PRF only matters if h>1. The recommended PRF and context width can be easily selected by instantiating the watermark processor and detector with `seeding_scheme="selfhash"` (a shorthand for `seeding_scheme="ff-anchored_minhash_prf-4-True-15485863"`, but do use a different base key if actually deploying). For detection, always run with `--ignore--repeated-ngrams=True`.
 
 1) **Logit bias delta**: The magnitude of delta determines the strength of the watermark. A sufficiently large value of delta recovers a "hard" watermark that encodes 1 bit of information at every token, but this is not an advisable setting, as it strongly affects model quality. A moderate delta in the range of [0.5, 2.0] is appropriate for normal use cases, but the strength of delta is relative to the entropy of the output distribution. Models that are overconfident, such as instruction-tuned models, may benefit from choosing a larger delta value. With non-infinite delta values, the watermark strength is directly proportional to the (spike) entropy of the text and exp(delta) (see Theorem 4.2 in our paper).
 
 2) **Context width h**: Context width is the length of the context which is taken into account when seeding the watermark at each location. The longer the context, the "more random" the red/green list partitions are, and the less detectable the watermark is. For private watermarks, this implies that the watermark is harder to discover via brute-force (with an exponential increase in hardness with increasing context width h).
 In the limit of a very long context width, we approach the "undetectable" setting of https://eprint.iacr.org/2023/763. However, the longer the context width, the less "nuclear" the watermark is, and robustness to paraphrasing and other attacks decreases. In the limit of h=0, the watermark is independent of local context and, as such, it is minimally random, but maximally robust against edits (see https://arxiv.org/abs/2306.17439).
 
-3) **Ignoring repeated ngrams**: The watermark is only pseudo-random based on the local context. Whenever local context repeats, this constitutes a violation of the assumption that watermarks are drawn iid. (See Sec.4. in our paper for details). For this reason, p-values for text with repeated n-grams (n-gram here meaning context + chosen token) will be misleading. As such, detection should be run with --ignore-repeated-ngrams. An additional, detailed analysis of this effect can be found in http://arxiv.org/abs/2308.00113.
+3) **Ignoring repeated ngrams**: The watermark is only pseudo-random based on the local context. Whenever local context repeats, this constitutes a violation of the assumption that the PRNG numbers used to seed the green/red partition operation are drawn iid. (See Sec.4. in our paper for details). For this reason, p-values for text with repeated n-grams (n-gram here meaning context + chosen token) will be misleading. As such, detection should be run with `--ignore-repeated-ngrams` set to `True`. An additional, detailed analysis of this effect can be found in http://arxiv.org/abs/2308.00113.
 
+4) **Choice of pseudo-random-function** (PRF): This choice is only relevant if context width h>1 and determines the robustness of the hash of the context against edits. In our experiments we find "min"-hash PRFs to be the most performant in striking a balance between maximizing robustness and minimizing impact on text quality. In comparison to a PRF that depends on the entire context, this PRF only depends on a single, randomly chosen token from the context.
 
-4) **Choice of pseudo-random-function** (PRF): This choice is only relevant if context width h>1 and determines the robustness of the hash of the context against edits. In our experiments we find "min"-hash PRFs to be the most reliable. In comparison to a PRF that depends on the entire context, this PRF only depends on a single, randomly chosen token from the context.
+5) **Self-Hashing**: It is possible to extend the context width of the watermark onto the current token. This effectively extends the context width "for-free" by one. The only downside is that this approach requires hashing all possible next tokens, and applying the logit bias only to tokens where their inclusion in the context would produce a hash that includes this token on the green list. This is slow in the way we implement it, because we use cuda's pseudorandom number generator and a simple inner-loop implementation, but in principle has a negligible cost, compared to generating new tokens if engineered for deployment. A generalized algorithm for self-hashing can be found as Alg.1 in http://arxiv.org/abs/2306.04634.
 
-5) **Self-Hashing**: It is possible to extend the context width of the watermark onto the current token. This effectively extends the context width "for-free" by one. The only downside is that this approach requires hashing all possible next tokens, and applying the logit bias only to tokens where their inclusion in the context would produce a hash that includes this token on the green list. This is slow in the way we implement it, because we use cuda's pseudorandom number generator, but in principle has a negligible cost, compared to generating new tokens. A generalized algorithm for self-hashing can be found as Alg.1 in http://arxiv.org/abs/2306.04634.
-6) **Gamma**: Gamma denotes the fraction of the vocabulary that will be in each green list. We find gamma=0.25 to be slightly more optimal empirically, but this is a minor effect and all reasonable values of gamma will lead to reasonable watermark.
-7) **Base Key**: Our watermark is salted with a small base key of 15485863. If you deploy this watermark, we do not advise re-using this key.
+6) **Gamma**: Gamma denotes the fraction of the vocabulary that will be in each green list. We find gamma=0.25 to be slightly more optimal empirically, but this is a minor effect and reasonable values of gamma between 0.25 and 0.75 will lead to reasonable watermark. A intuitive argument can be made for why this makes it easier to achieve a fraction of green tokens sufficiently higher than gamma to reject the null hypothesis, when you choose a lower gamma value.
 
-
-**To summarize**, as a baseline generation setting, we suggest a moderate value of h, i.e. h=4, and default values of gamma=0.25 and delta=2.0. Reduce delta if text quality is negatively impacted, reduce h, if more robustness against edits is required. As a default PRF we recommend `selfhash`, but can use `minhash` if you want. Remember that these PRFs only matter if h>1. For detection, always use  `--ignore--repeated-ngrams=True`.
-
+7) **Base Key**: Our watermark is salted with a small base key of 15485863 (the millionth prime). If you deploy this watermark, we do not advise re-using this key.
 
 ### How to use the watermark in your own code.
 
@@ -88,7 +87,7 @@ output_tokens = model.generate(**tokenized_input,
 # newly generated tokens as only those are watermarked, the input/prompt is not
 output_tokens = output_tokens[:,tokenized_input["input_ids"].shape[-1]:]
 
-output_text = tokenizer.batch_decode(output_without_watermark, skip_special_tokens=True)[0]
+output_text = tokenizer.batch_decode(output_tokens, skip_special_tokens=True)[0]
 ```
 
 Example snippet to detect watermarked text:
