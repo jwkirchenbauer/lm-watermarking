@@ -6,8 +6,13 @@ Official implementation of the watermarking and detection algorithms presented i
 
 "A Watermark for Large language Models" by _John Kirchenbauer*, Jonas Geiping*, Yuxin Wen, Jonathan Katz, Ian Miers, Tom Goldstein_  
 
-### (6/7/23) We're thrilled to announce the release of ["On the Reliability of Watermarks for Large Language Models"](https://arxiv.org/abs/2306.04634), a new preprint documenting our deep dive into the robustness properties of more advanced watermarks.
-#### (6/9/23) Initial code release implementing the alternate watermark and detector variants in the new work can be found in this subdirectory: [`watermark_reliability_release`](watermark_reliability_release).
+### Updates:
+
+- **(6/7/23)** We're thrilled to announce the release of ["On the Reliability of Watermarks for Large Language Models"](https://arxiv.org/abs/2306.04634) Our new preprint documents a deep dive into the robustness properties of more advanced watermarks.
+
+- **(6/9/23)** Initial code release implementing the alternate watermark and detector variants in the new work. Files located in this subdirectory: [`watermark_reliability_release`](watermark_reliability_release).
+
+- **(9/23/23)** Update to the docs with recommendations on parameter settings. Extended implementation (recommended) available in `extended_watermark_processor.py`.
 
 ---
 
