@@ -181,6 +181,7 @@ class WatermarkDetector(WatermarkBase):
             assert return_green_token_mask is False, "Can't return the green/red mask when ignoring repeats."
             bigram_table = {}
             token_bigram_generator = ngrams(input_ids.cpu().tolist(), 2)
+            # token_bigram_generator = bigrams(input_ids.cpu().tolist())
             freq = collections.Counter(token_bigram_generator)
             num_tokens_scored = len(freq.keys())
             for idx, bigram in enumerate(freq.keys()):
