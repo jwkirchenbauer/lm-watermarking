@@ -230,11 +230,18 @@ def generate(prompt, args, model=None, device=None, tokenizer=None):
         model.generate,
         **gen_kwargs
     )
+
+    # partial function: https://zhuanlan.zhihu.com/p/47124891
+    # transformers.LogitsProcessorList(scores: FloatTensor) 
+    # Prediction scores of a language modeling head. These can be logits for each vocabulary
+    # https://huggingface.co/docs/transformers/internal/generation_utils#transformers.LogitsProcessorList
     generate_with_watermark = partial(
         model.generate,
         logits_processor=LogitsProcessorList([watermark_processor]), 
         **gen_kwargs
     )
+
+
     if args.prompt_max_length:
         pass
     elif hasattr(model.config,"max_position_embedding"):
@@ -252,6 +259,7 @@ def generate(prompt, args, model=None, device=None, tokenizer=None):
     # optional to seed before second generation, but will not be the same again generally, unless delta==0.0, no-op watermark
     if args.seed_separately: 
         torch.manual_seed(args.generation_seed)
+    
     output_with_watermark = generate_with_watermark(**tokd_input)
 
     if args.is_decoder_only_model:

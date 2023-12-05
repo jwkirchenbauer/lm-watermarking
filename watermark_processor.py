@@ -142,14 +142,16 @@ class WatermarkDetector(WatermarkBase):
         else:
             raise NotImplementedError(f"Unexpected seeding_scheme: {self.seeding_scheme}")
 
+        # 设置编码规则，默认是unicode
         self.normalizers = []
         for normalization_strategy in normalizers:
-            self.normalizers.append(normalization_strategy_lookup(normalization_strategy))
+            self.normalizers.append(normalization_strategy_lookup(normalization_strategy)) 
 
         self.ignore_repeated_bigrams = ignore_repeated_bigrams
         if self.ignore_repeated_bigrams:
             assert self.seeding_scheme == "simple_1", "No repeated bigram credit variant assumes the single token seeding scheme."
 
+    # 论文公式3.1.(3)，z>4 则有水印
     def _compute_z_score(self, observed_count, T):
         # count refers to number of green tokens, T is total number of tokens
         expected_count = self.gamma
@@ -158,8 +160,10 @@ class WatermarkDetector(WatermarkBase):
         z = numer / denom
         return z
 
+    # 低 p 值则说明出现概率极低的事件，即有水印
+    # 1-p 表示有水印的置信度
     def _compute_p_value(self, z):
-        p_value = scipy.stats.norm.sf(z)
+        p_value = scipy.stats.norm.sf(z)    # sf：survival function，生存函数
         return p_value
 
     def _score_sequence(
@@ -172,6 +176,7 @@ class WatermarkDetector(WatermarkBase):
         return_z_score: bool = True,
         return_p_value: bool = True,
     ):
+        # 判断token是否在greenlist中，并且对在greenlist中的token计数，无重复计数
         if self.ignore_repeated_bigrams:
             # Method that only counts a green/red hit once per unique bigram.
             # New num total tokens scored (T) becomes the number unique bigrams.
@@ -180,14 +185,16 @@ class WatermarkDetector(WatermarkBase):
             # token falls in that greenlist.
             assert return_green_token_mask is False, "Can't return the green/red mask when ignoring repeats."
             bigram_table = {}
-            token_bigram_generator = ngrams(input_ids.cpu().tolist(), 2)
-            freq = collections.Counter(token_bigram_generator)
+            token_bigram_generator = ngrams(input_ids.cpu().tolist(), 2)    # https://www.nltk.org/_modules/nltk/util.html
+            freq = collections.Counter(token_bigram_generator)  # https://docs.python.org/zh-cn/3/library/collections.html#collections.Counter
             num_tokens_scored = len(freq.keys())
             for idx, bigram in enumerate(freq.keys()):
                 prefix = torch.tensor([bigram[0]], device=self.device)  # expects a 1-d prefix tensor on the randperm device
                 greenlist_ids = self._get_greenlist_ids(prefix)
-                bigram_table[bigram] = True if bigram[1] in greenlist_ids else False
+                bigram_table[bigram] = True if bigram[1] in greenlist_ids else False 
             green_token_count = sum(bigram_table.values())
+
+        # 判断token是否在greenlist中，并且对在greenlist中过的token计数，有重复计数
         else:
             num_tokens_scored = len(input_ids) - self.min_prefix_len
             if num_tokens_scored < 1:
@@ -203,6 +210,7 @@ class WatermarkDetector(WatermarkBase):
             # num tokens as the first prefix for the seeding scheme,
             # and at each step, compute the greenlist induced by the
             # current prefix and check if the current token falls in the greenlist.
+
             green_token_count, green_token_mask = 0, []
             for idx in range(self.min_prefix_len, len(input_ids)):
                 curr_token = input_ids[idx]
@@ -212,7 +220,6 @@ class WatermarkDetector(WatermarkBase):
                     green_token_mask.append(True)
                 else:
                     green_token_mask.append(False)
-
         score_dict = dict()
         if return_num_tokens_scored:
             score_dict.update(dict(num_tokens_scored=num_tokens_scored))
@@ -234,33 +241,44 @@ class WatermarkDetector(WatermarkBase):
 
     def detect(
         self,
-        text: str = None,
-        tokenized_text: list[int] = None,
+        text: str = None,   # text是文本string
+        tokenized_text: list[int] = None,   # tokenized_text是文本list
         return_prediction: bool = True,
         return_scores: bool = True,
         z_threshold: float = None,
         **kwargs,
     ) -> dict:
-
+        
+        
         assert (text is not None) ^ (tokenized_text is not None), "Must pass either the raw or tokenized string"
         if return_prediction:
             kwargs["return_p_value"] = True  # to return the "confidence":=1-p of positive detections
 
+        # 规范化文本格式
         # run optional normalizers on text
         for normalizer in self.normalizers:
             text = normalizer(text)
         if len(self.normalizers) > 0:
             print(f"Text after normalization:\n\n{text}\n")
 
+        # 
         if tokenized_text is None:
             assert self.tokenizer is not None, (
                 "Watermark detection on raw string ",
                 "requires an instance of the tokenizer ",
                 "that was used at generation time.",
             )
-            tokenized_text = self.tokenizer(text, return_tensors="pt", add_special_tokens=False)["input_ids"][0].to(self.device)
-            if tokenized_text[0] == self.tokenizer.bos_token_id:
+            
+            tokenized_text = self.tokenizer(text, return_tensors="pt", add_special_tokens=False)["input_ids"][0].to(self.device)   
+            # `return_tensors="pt"` 表示输出应该是 PyTorch 张量。 
+            # `add_special_tokens=False` 确保特殊标记（如句子开头或句子结尾标记）不会添加到tokenized_text中，与水印检测无关。
+            # https://huggingface.co/docs/tokenizers/api/tokenizer#tokenizers.Tokenizer.encode
+
+            if tokenized_text[0] == self.tokenizer.bos_token_id:    
                 tokenized_text = tokenized_text[1:]
+            # bos_token_id: begin of sentence_token_id
+            # 如果句子开头标记存在于tokenized_text中，将其删除：
+
         else:
             # try to remove the bos_tok at beginning if it's there
             if (self.tokenizer is not None) and (tokenized_text[0] == self.tokenizer.bos_token_id):
