@@ -29,6 +29,8 @@ from nltk.util import ngrams
 
 from normalizers import normalization_strategy_lookup
 
+import poseidon
+from ordered_sequence_generator import OrderedSequenceGenerator
 
 class WatermarkBase:
     def __init__(
@@ -71,7 +73,13 @@ class WatermarkBase:
         self._seed_rng(input_ids)
 
         greenlist_size = int(self.vocab_size * self.gamma)
-        vocab_permutation = torch.randperm(self.vocab_size, device=input_ids.device, generator=self.rng)
+        # use torch.randperm as random function
+        # vocab_permutation = torch.randperm(self.vocab_size, device=input_ids.device, generator=self.rng)
+
+        # use hash fuction as random function
+        generator = OrderedSequenceGenerator(self.vocab_size)
+        vocab_permutation = generator.generate_ordered_sequence()
+
         if self.select_green_tokens:  # directly
             greenlist_ids = vocab_permutation[:greenlist_size]  # new
         else:  # select green via red
@@ -188,6 +196,7 @@ class WatermarkDetector(WatermarkBase):
             token_bigram_generator = ngrams(input_ids.cpu().tolist(), 2)    # https://www.nltk.org/_modules/nltk/util.html
             freq = collections.Counter(token_bigram_generator)  # https://docs.python.org/zh-cn/3/library/collections.html#collections.Counter
             num_tokens_scored = len(freq.keys())
+            
             for idx, bigram in enumerate(freq.keys()):
                 prefix = torch.tensor([bigram[0]], device=self.device)  # expects a 1-d prefix tensor on the randperm device
                 greenlist_ids = self._get_greenlist_ids(prefix)
