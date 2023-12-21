@@ -1,6 +1,9 @@
-gradio
-nltk
-scipy
-torch
-transformers
-tokenizers
+python=3.10
+gradio=4.11.0
+nltk=3.8.1
+scipy=1.11.4
+pytorch=2.1.2
+transformers=4.36.2
+tokenizers=0.15.0
+numpy=1.25.2
+poseidon-hash=0.1.4 # attention: poseidon-hash is not poseidon. it is hash function
