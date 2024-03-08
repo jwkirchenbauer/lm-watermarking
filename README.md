@@ -80,7 +80,7 @@ watermark_processor = WatermarkLogitsProcessor(vocab=list(tokenizer.get_vocab().
 # Note:
 # You can turn off self-hashing by setting the seeding scheme to `minhash`.
 
-tokenized_input = tokenizer(input_text).to(model.device)
+tokenized_input = tokenizer(input_text, return_tensors='pt').to(model.device)
 # note that if the model is on cuda, then the input is on cuda
 # and thus the watermarking rng is cuda-based.
 # This is a different generator than the cpu-based rng in pytorch!
