@@ -2,9 +2,11 @@
 
 ### [Demo](https://huggingface.co/spaces/tomg-group-umd/lm-watermarking) | [Paper](https://arxiv.org/abs/2301.10226)
 
-Official implementation of the watermarking and detection algorithms presented in the paper:
+Official implementation of the watermarking and detection algorithms presented in the papers:
 
 "A Watermark for Large language Models" by _John Kirchenbauer*, Jonas Geiping*, Yuxin Wen, Jonathan Katz, Ian Miers, Tom Goldstein_  
+
+"On the Reliability of Watermarks for Large Language Models" by _John Kirchenbauer*, Jonas Geiping*, Yuxin Wen, Manli Shu, Khalid Saifullah, Kezhi Kong, Kasun Fernando, Aniruddha Saha, Micah Goldblum, Tom Goldstein_
 
 ### Updates:
 
@@ -13,6 +15,8 @@ Official implementation of the watermarking and detection algorithms presented i
 - **(6/9/23)** Initial code release implementing the alternate watermark and detector variants in the new work. Files located in this subdirectory: [`watermark_reliability_release`](watermark_reliability_release).
 
 - **(9/23/23)** Update to the docs with recommendations on parameter settings. Extended implementation (recommended) available in `extended_watermark_processor.py`.
+
+- **(1/16/24)** ["On the Reliability of Watermarks for Large Language Models"](https://arxiv.org/abs/2306.04634) has been accepted for publication and will be presented at ICLR 2024 in Vienna, Austria!
 
 ---
 

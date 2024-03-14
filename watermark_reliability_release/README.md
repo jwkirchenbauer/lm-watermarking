@@ -1,8 +1,6 @@
 # 💧2.0: [On the Reliability of Watermarks for Large Language Models](https://arxiv.org/abs/2306.04634)
 
-This directory contains the codebase for reproducing the experiments in our [new 6/7/23 preprint](https://arxiv.org/abs/2306.04634).
-
-### **NOTE**: this is a preliminary release, so please expect some small changes in the future as required.
+This directory contains the codebase for reproducing the experiments in our second work ["On the Reliability of Watermarks for Large Language Models"](https://arxiv.org/abs/2306.04634).
 
 ---
 
